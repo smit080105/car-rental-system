@@ -1,20 +1,45 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const API_URL = 'http://localhost:5000/api';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    
-    if (email && password) {
-      localStorage.setItem('user', JSON.stringify({ email, name: email.split('@')[0] }));
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Login failed');
+        setLoading(false);
+        return;
+      }
+
+      // Save token and user to localStorage
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
       navigate('/fleet');
-    } else {
-      setError('Please fill all fields');
+    } catch (err) {
+      setError('Connection error. Is backend running on port 5000?');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -69,19 +94,20 @@ export default function Login() {
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: '100%',
               padding: '12px',
-              background: '#ff9800',
+              background: loading ? '#999' : '#ff9800',
               color: '#000',
               border: 'none',
               borderRadius: '5px',
               fontSize: '16px',
               fontWeight: 'bold',
-              cursor: 'pointer'
+              cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            Login
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
@@ -91,8 +117,8 @@ export default function Login() {
 
         <div style={{ marginTop: '30px', padding: '15px', background: '#3a3a3a', borderRadius: '5px' }}>
           <p style={{ color: '#aaa', fontSize: '12px', marginBottom: '5px' }}>Demo Accounts:</p>
-          <p style={{ color: '#ff9800', fontSize: '12px' }}>aarav.sharma@example.com / any password</p>
-          <p style={{ color: '#ff9800', fontSize: '12px' }}>priya.iyer@example.com / any password</p>
+          <p style={{ color: '#ff9800', fontSize: '12px' }}>aarav.sharma@example.com / password1</p>
+          <p style={{ color: '#ff9800', fontSize: '12px' }}>priya.iyer@example.com / password2</p>
         </div>
       </div>
     </div>
