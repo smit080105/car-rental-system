@@ -1,22 +1,47 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const API_URL = 'http://localhost:5000/api';
+
 export default function SignUp() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSignUp = (e) => {
+  const handleSignUp = async (e) => {
     e.preventDefault();
-    
-    if (name && email && password && phone) {
-      localStorage.setItem('user', JSON.stringify({ email, name, phone }));
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, phone })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Sign up failed');
+        setLoading(false);
+        return;
+      }
+
+      // Save token and user
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
       navigate('/fleet');
-    } else {
-      setError('Please fill all fields');
+    } catch (err) {
+      setError('Connection error. Is backend running on port 5000?');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -111,19 +136,20 @@ export default function SignUp() {
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: '100%',
               padding: '12px',
-              background: '#ff9800',
+              background: loading ? '#999' : '#ff9800',
               color: '#000',
               border: 'none',
               borderRadius: '5px',
               fontSize: '16px',
               fontWeight: 'bold',
-              cursor: 'pointer'
+              cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            Sign Up
+            {loading ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
 
