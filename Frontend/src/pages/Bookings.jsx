@@ -1,123 +1,195 @@
-export default function Bookings() {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-  const CARS = [
-    { id: 1, brand: 'Maruti', model: 'Swift', price: 1800 },
-    { id: 2, brand: 'Hyundai', model: 'Creta', price: 3200 },
-    { id: 3, brand: 'Honda', model: 'City', price: 2500 },
-    { id: 4, brand: 'Toyota', model: 'Fortuner', price: 5500 },
-    { id: 5, brand: 'Tata', model: 'Nexon EV', price: 2800 },
-    { id: 6, brand: 'Mahindra', model: 'Thar', price: 3800 },
-    { id: 7, brand: 'Kia', model: 'Seltos', price: 3000 },
-    { id: 8, brand: 'BMW', model: '3 Series', price: 8500 },
-    { id: 9, brand: 'Volkswagen', model: 'Polo', price: 1900 },
-    { id: 10, brand: 'Ford', model: 'Mustang', price: 9500 },
-  ];
+const API_URL = 'http://localhost:5000/api';
+
+export default function Bookings() {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [cancellingId, setCancellingId] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  const fetchBookings = async () => {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      setError('Please login to view bookings');
+      setTimeout(() => navigate('/login'), 1500);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/bookings`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Failed to load bookings');
+        setLoading(false);
+        return;
+      }
+
+      setBookings(data.bookings || data);
+    } catch (err) {
+      setError('Connection error. Is backend running on port 5000?');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async (bookingId) => {
+    const token = localStorage.getItem('token');
+    setCancellingId(bookingId);
+    setMessage('');
+
+    try {
+      const response = await fetch(`${API_URL}/bookings/${bookingId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || 'Cancellation failed');
+        setCancellingId(null);
+        return;
+      }
+
+      setMessage('Booking cancelled successfully!');
+      fetchBookings(); // refresh list
+    } catch (err) {
+      setMessage('Connection error. Is backend running on port 5000?');
+      console.error(err);
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#fff', fontSize: '18px' }}>Loading bookings...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#1a1a1a', padding: '40px 20px' }}>
-      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-        
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-          <h1 style={{ color: '#fff', fontSize: '32px' }}>📋 My Bookings</h1>
-          <button
-            onClick={() => window.location.href = '/fleet'}
-            style={{
-              padding: '10px 20px',
-              background: '#ff9800',
-              color: '#000',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            Back to Fleet
-          </button>
-        </div>
+      <h1 style={{ color: '#fff', textAlign: 'center', marginBottom: '10px' }}>🚗 CAR RENTAL</h1>
+      <h2 style={{ color: '#ccc', textAlign: 'center', marginBottom: '30px' }}>My Bookings</h2>
 
-        <p style={{ color: '#aaa', marginBottom: '30px' }}>{user.name}'s Active Bookings</p>
+      {error && (
+        <p style={{ color: '#ff6b6b', textAlign: 'center', marginBottom: '20px' }}>{error}</p>
+      )}
+      {message && (
+        <p style={{ color: '#4caf50', textAlign: 'center', marginBottom: '20px' }}>{message}</p>
+      )}
 
-        {/* Bookings List */}
-        {bookings.length === 0 ? (
-          <div style={{
-            background: '#2a2a2a',
-            padding: '40px',
-            borderRadius: '10px',
-            textAlign: 'center'
-          }}>
-            <p style={{ color: '#aaa', fontSize: '16px', marginBottom: '20px' }}>No active bookings</p>
-            <button
-              onClick={() => window.location.href = '/fleet'}
-              style={{
-                padding: '10px 20px',
-                background: '#35c98f',
-                color: '#000',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              Book a Car Now
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gap: '20px' }}>
-            {bookings.map((booking, idx) => {
-              const car = CARS.find(c => c.id === booking.carId);
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    background: '#2a2a2a',
-                    border: '1px solid #555',
-                    borderRadius: '10px',
-                    padding: '20px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}
-                >
-                  <div>
-                    <h3 style={{ color: '#fff', fontSize: '20px', marginBottom: '10px' }}>
-                      {car?.brand} {car?.model}
-                    </h3>
-                    <p style={{ color: '#aaa', fontSize: '14px', marginBottom: '5px' }}>
-                      📅 {booking.days} day(s)
-                    </p>
-                    <p style={{ color: '#ff9800', fontSize: '16px', fontWeight: 'bold' }}>
-                      Total: ₹{booking.days * (car?.price || 0)}
-                    </p>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                      onClick={() => {
-                        const updatedBookings = bookings.filter((_, i) => i !== idx);
-                        localStorage.setItem('bookings', JSON.stringify(updatedBookings));
-                        window.location.reload();
-                      }}
-                      style={{
-                        padding: '10px 20px',
-                        background: '#ff6b6b',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '5px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      Return Car
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      <div style={{
+        maxWidth: '900px',
+        margin: '0 auto'
+      }}>
+        {bookings.length === 0 && !error && (
+          <p style={{ color: '#aaa', textAlign: 'center', padding: '40px' }}>
+            No bookings yet. <a href="/fleet" style={{ color: '#ff9800' }}>Browse cars and make a booking!</a>
+          </p>
         )}
+
+        {bookings.map((booking) => (
+          <div key={booking._id || booking.id} style={{
+            background: '#2a2a2a',
+            borderRadius: '10px',
+            padding: '20px',
+            marginBottom: '20px',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <p style={{ color: '#aaa', fontSize: '12px', marginBottom: '5px' }}>CAR</p>
+                <p style={{ color: '#fff', fontSize: '18px', fontWeight: 'bold' }}>
+                  {booking.carId?.name || booking.carName || 'Unknown Car'}
+                </p>
+              </div>
+              <div>
+                <p style={{ color: '#aaa', fontSize: '12px', marginBottom: '5px' }}>BOOKING ID</p>
+                <p style={{ color: '#ff9800', fontSize: '14px', fontFamily: 'monospace' }}>
+                  {booking._id?.slice(-8) || booking.id}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <p style={{ color: '#aaa', fontSize: '12px', marginBottom: '5px' }}>CHECK-IN</p>
+                <p style={{ color: '#fff' }}>
+                  {booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p style={{ color: '#aaa', fontSize: '12px', marginBottom: '5px' }}>CHECK-OUT</p>
+                <p style={{ color: '#fff' }}>
+                  {booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p style={{ color: '#aaa', fontSize: '12px', marginBottom: '5px' }}>TOTAL COST</p>
+                <p style={{ color: '#4caf50', fontWeight: 'bold' }}>
+                  ₹{booking.totalCost || '0'}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <p style={{ color: '#aaa', fontSize: '12px', marginBottom: '5px' }}>STATUS</p>
+              <p style={{
+                color: booking.status === 'active' ? '#4caf50' : '#ff6b6b',
+                fontWeight: 'bold'
+              }}>
+                {booking.status?.toUpperCase() || 'PENDING'}
+              </p>
+            </div>
+
+            {booking.status === 'active' && (
+              <button
+                onClick={() => handleCancel(booking._id || booking.id)}
+                disabled={cancellingId === (booking._id || booking.id)}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: '#ff6b6b',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '5px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                {cancellingId === (booking._id || booking.id)
+                  ? 'Cancelling...'
+                  : 'Cancel Booking'}
+              </button>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
